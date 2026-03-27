@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WAVULT GROUP — COMMAND CENTER</title>
+<style>
+  :root {
+    --bg: #050510;
+    --bg2: #080820;
+    --bg3: #0c0c28;
+    --blue: #00d4ff;
+    --green: #00ff88;
+    --purple: #7b2fff;
+    --amber: #ffaa00;
+    --red: #ff3355;
+    --text: #c8d8f0;
+    --dim: #4a5a7a;
+    --border: rgba(0, 212, 255, 0.18);
+    --panel-bg: rgba(8, 8, 32, 0.92);
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 212, 255, 0.012) 2px,
+      rgba(0, 212, 255, 0.012) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* Vignette */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.6) 100%);
+    pointer-events: none;
+    z-index: 9998;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.85); }
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 6px currentColor, 0 0 12px currentColor; opacity: 1; }
+    50% { box-shadow: 0 0 2px currentColor; opacity: 0.5; }
+  }
+
+  @keyframes blink {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0; }
+  }
+
+  @keyframes sweep {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  @keyframes flicker {
+    0%, 95%, 100% { opacity: 1; }
+    96% { opacity: 0.7; }
+    97% { opacity: 1; }
+    98% { opacity: 0.5; }
+    99% { opacity: 1; }
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes borderPulse {
+    0%, 100% { border-color: rgba(0, 212, 255, 0.18); }
+    50% { border-color: rgba(0, 212, 255, 0.45); }
+  }
+
+  /* ── LAYOUT ── */
+  .wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+    animation: borderPulse 4s ease-in-out infinite;
+  }
+
+  .header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0,212,255,0.04), transparent);
+    animation: sweep 6s linear infinite;
+  }
+
+  .header-left {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .header-title {
+    font-size: clamp(14px, 2vw, 22px);
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    color: var(--blue);
+    text-shadow: 0 0 20px rgba(0,212,255,0.6), 0 0 40px rgba(0,212,255,0.3);
+    text-transform: uppercase;
+    animation: flicker 8s ease-in-out infinite;
+  }
+
+  .header-sub {
+    font-size: clamp(9px, 0.9vw, 11px);
+    letter-spacing: 0.25em;
+    color: var(--dim);
+    font-family: 'Courier New', monospace;
+    margin-top: 2px;
+  }
+
+  .header-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .clock {
+    font-family: 'Courier New', monospace;
+    font-size: clamp(20px, 3vw, 38px);
+    font-weight: 700;
+    color: var(--blue);
+    text-shadow: 0 0 20px rgba(0,212,255,0.7);
+    letter-spacing: 0.1em;
+  }
+
+  .date-line {
+    font-family: 'Courier New', monospace;
+    font-size: clamp(9px, 0.9vw, 12px);
+    color: var(--dim);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .bernt-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0,255,136,0.06);
+    border: 1px solid rgba(0,255,136,0.25);
+    border-radius: 3px;
+    padding: 6px 14px;
+  }
+
+  .bernt-badge .label {
+    font-family: 'Courier New', monospace;
+    font-size: clamp(9px, 0.9vw, 12px);
+    letter-spacing: 0.2em;
+    color: var(--green);
+    font-weight: 700;
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--green);
+    color: var(--green);
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  /* ── GRID ── */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 8px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* ── PANELS ── */
+  .panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: relative;
+    overflow: hidden;
+    animation: borderPulse 6s ease-in-out infinite;
+  }
+
+  .panel::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--blue), transparent);
+    opacity: 0.4;
+  }
+
+  .panel-1::after { background: linear-gradient(90deg, transparent, var(--green), transparent); }
+  .panel-2::after { background: linear-gradient(90deg, transparent, var(--amber), transparent); }
+  .panel-3::after { background: linear-gradient(90deg, transparent, var(--purple), transparent); }
+  .panel-4::after { background: linear-gradient(90deg, transparent, var(--blue), transparent); }
+  .panel-5::after { background: linear-gradient(90deg, transparent, var(--green), transparent); }
+  .panel-6::after { background: linear-gradient(90deg, transparent, var(--amber), transparent); }
+
+  .panel-title {
+    font-size: clamp(9px, 0.8vw, 11px);
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .panel-1 .panel-title { color: var(--green); }
+  .panel-2 .panel-title { color: var(--amber); }
+  .panel-3 .panel-title { color: var(--purple); }
+  .panel-4 .panel-title { color: var(--blue); }
+  .panel-5 .panel-title { color: var(--green); }
+  .panel-6 .panel-title { color: var(--amber); }
+
+  .panel-title-icon {
+    font-size: 12px;
+    animation: pulse 3s ease-in-out infinite;
+  }
+
+  .panel-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow: hidden;
+  }
+
+  /* ── STATUS ROWS ── */
+  .status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    animation: slideIn 0.3s ease;
+  }
+
+  .status-row:last-child {
+    border-bottom: none;
+  }
+
+  .status-name {
+    font-family: 'Courier New', monospace;
+    font-size: clamp(9px, 0.75vw, 11px);
+    color: var(--text);
+    letter-spacing: 0.05em;
+  }
+
+  .status-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'Courier New', monospace;
+    font-size: clamp(8px, 0.7vw, 10px);
+    font-weight: 700;
+    letter-spacing: 0.15em;
+  }
+
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .status-dot.green {
+    background: var(--green);
+    color: var(--green);
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  .status-dot.amber {
+    background: var(--amber);
+    color: var(--amber);
+    animation: pulse-glow 2.5s ease-in-out infinite;
+  }
+
+  .status-dot.red {
+    background: var(--red);
+    color: var(--red);
+    animation: pulse-glow 1.5s ease-in-out infinite;
+  }
+
+  .live-text { color: var(--green); }
+  .pending-text { color: var(--amber); }
+  .beta-text { color: var(--green); }
+  .alpha-text { color: var(--amber); }
+  .skeleton-text { color: var(--red); }
+
+  /* ── PANEL 3: COUNTDOWN ── */
+  .countdown-block {
+    background: rgba(123, 47, 255, 0.08);
+    border: 1px solid rgba(123, 47, 255, 0.25);
+    border-radius: 3px;
+    padding: 10px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .countdown-label {
+    font-family: 'Courier New', monospace;
+    font-size: clamp(8px, 0.7vw, 10px);
+    color: var(--purple);
+    letter-spacing: 0.25em;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+
+  .countdown-timer {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .cd-unit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 36px;
+  }
+
+  .cd-num {
+    font-family: 'Courier New', monospace;
+    font-size: clamp(16px, 2vw, 26px);
+    font-weight: 700;
+    color: var(--purple);
+    text-shadow: 0 0 15px rgba(123,47,255,0.7);
+    line-height: 1;
+  }
+
+  .cd-label {
+    font-family: 'Courier New', monospace;
+    font-size: clamp(7px, 0.6vw, 9px);
+    color: var(--dim);
+    letter-spacing: 0.15em;
+    margin-top: 2px;
+    text-transform: uppercase;
+  }
+
+  .cd-sep {
+    font-family: 'Courier New', monospace;
+    font-size: clamp(16px, 2vw, 26px);
+    color: var(--dim);
+    animation: blink 1s step-start infinite;
+    align-self: flex-start;
+    padding-top: 0;
+    line-height: 1;
+  }
+
+  /* ── PANEL 4: RECRUITMENT ── */
+  .recruit-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .recruit-item:last-child { border-bottom: none; }
+
+  .recruit-handle {
+    font-family: 'Courier New', monospace;
+    font-size: clamp(9px, 0.75vw, 11px);
+    color: var(--blue);
+    flex: 1;
+  }
+
+  .recruit-status {
+    font-family: 'Courier New', monospace;
+    font-size: clamp(8px, 0.65vw, 9px);
+    letter-spacing: 0.1em;
+    color: var(--amber);
+    font-weight: 700;
+  }
+
+  /* ── PANEL 6: LOG ── */
+  .log-entry {
+    display: flex;
+    gap: 8px;
+    padding: 3px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    animation: slideIn 0.4s ease;
+  }
+
+  .log-entry:last-child { border-bottom: none; }
+
+  .log-time {
+    font-family: 'Courier New', monospace;
+    font-size: clamp(8px, 0.7vw, 10px);
+    color: var(--amber);
+    flex-shrink: 0;
+    min-width: 50px;
+  }
+
+  .log-text {
+    font-family: 'Courier New', monospace;
+    font-size: clamp(8px, 0.7vw, 10px);
+    color: var(--text);
+    opacity: 0.85;
+  }
+
+  .log-cursor {
+    display: inline-block;
+    width: 6px;
+    height: 11px;
+    background: var(--green);
+    animation: blink 1.2s step-start infinite;
+    vertical-align: text-bottom;
+    margin-left: 2px;
+  }
+
+  /* ── FOOTER ── */
+  .footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 20px;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  .footer-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Courier New', monospace;
+    font-size: clamp(9px, 0.8vw, 11px);
+    letter-spacing: 0.25em;
+    color: var(--green);
+    font-weight: 700;
+    text-shadow: 0 0 10px rgba(0,255,136,0.4);
+  }
+
+  .footer-version {
+    font-family: 'Courier New', monospace;
+    font-size: clamp(8px, 0.7vw, 10px);
+    color: var(--dim);
+    letter-spacing: 0.2em;
+  }
+
+  .footer-ticker {
+    font-family: 'Courier New', monospace;
+    font-size: clamp(8px, 0.7vw, 10px);
+    color: var(--dim);
+    letter-spacing: 0.1em;
+    overflow: hidden;
+    max-width: 35vw;
+    white-space: nowrap;
+  }
+
+  /* Corner decorations */
+  .corner-tl, .corner-tr, .corner-bl, .corner-br {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    opacity: 0.5;
+  }
+  .corner-tl { top: 4px; left: 4px; border-top: 1px solid var(--blue); border-left: 1px solid var(--blue); }
+  .corner-tr { top: 4px; right: 4px; border-top: 1px solid var(--blue); border-right: 1px solid var(--blue); }
+  .corner-bl { bottom: 4px; left: 4px; border-bottom: 1px solid var(--blue); border-left: 1px solid var(--blue); }
+  .corner-br { bottom: 4px; right: 4px; border-bottom: 1px solid var(--blue); border-right: 1px solid var(--blue); }
+
+  /* Panel number badge */
+  .panel-num {
+    position: absolute;
+    top: 6px;
+    right: 10px;
+    font-family: 'Courier New', monospace;
+    font-size: 9px;
+    color: var(--dim);
+    opacity: 0.4;
+    letter-spacing: 0.1em;
+  }
+
+  /* Responsive tweak */
+  @media (max-width: 900px) {
+    .grid {
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="corner-tl"></div>
+    <div class="corner-tr"></div>
+    <div class="corner-bl"></div>
+    <div class="corner-br"></div>
+
+    <div class="header-left">
+      <div class="header-title">WAVULT GROUP — COMMAND CENTER</div>
+      <div class="header-sub">ENTERPRISE OPERATIONS DASHBOARD // CLASSIFIED</div>
+    </div>
+
+    <div class="header-center">
+      <div class="clock" id="clock">--:--:--</div>
+      <div class="date-line" id="dateline">LOADING...</div>
+    </div>
+
+    <div class="header-right">
+      <div class="bernt-badge">
+        <div class="dot"></div>
+        <div class="label">BERNT ONLINE</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN GRID -->
+  <main class="grid">
+
+    <!-- PANEL 1: SYSTEM STATUS -->
+    <div class="panel panel-1">
+      <div class="corner-tl"></div>
+      <div class="corner-br"></div>
+      <div class="panel-num">01/06</div>
+      <div class="panel-title">
+        <span class="panel-title-icon">⬡</span>
+        SYSTEM STATUS
+      </div>
+      <div class="panel-body">
+        <div class="status-row">
+          <span class="status-name">API — api.bc.pixdrift.com</span>
+          <span class="status-badge"><span class="status-dot green"></span><span class="live-text">LIVE</span></span>
+        </div>
+        <div class="status-row">
+          <span class="status-name">QuixZoom API</span>
+          <span class="status-badge"><span class="status-dot green"></span><span class="live-text">LIVE</span></span>
+        </div>
+        <div class="status-row">
+          <span class="status-name">Supabase EU</span>
+          <span class="status-badge"><span class="status-dot green"></span><span class="live-text">LIVE</span></span>
+        </div>
+        <div class="status-row">
+          <span class="status-name">Gateway</span>
+          <span class="status-badge"><span class="status-dot green"></span><span class="live-text">LIVE</span></span>
+        </div>
+        <div class="status-row">
+          <span class="status-name">Tunnel</span>
+          <span class="status-badge"><span class="status-dot green"></span><span class="live-text">LIVE</span></span>
+        </div>
+        <div class="status-row" style="margin-top:4px; border-top: 1px solid var(--border);">
+          <span class="status-name" style="color:var(--dim); font-size:9px;">UPTIME: 99.97% // ALL CLEAR</span>
+          <span class="status-badge" style="color:var(--green); font-size:9px;">5/5 ●</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL 2: BOLAGSSTRUKTUR -->
+    <div class="panel panel-2">
+      <div class="corner-tl"></div>
+      <div class="corner-br"></div>
+      <div class="panel-num">02/06</div>
+      <div class="panel-title">
+        <span class="panel-title-icon">⬡</span>
+        BOLAGSSTRUKTUR
+      </div>
+      <div class="panel-body">
+        <div class="status-row">
+          <span class="status-name">Wavult Group FZCO (Dubai)</span>
+          <span class="status-badge"><span class="status-dot amber"></span><span class="pending-text">REGISTRERING PÅGÅR</span></span>
+        </div>
+        <div class="status-row">
+          <span class="status-name">Wavult DevOps FZCO (Dubai)</span>
+          <span class="status-badge"><span class="status-dot amber"></span><span class="pending-text">REGISTRERING PÅGÅR</span></span>
+        </div>
+        <div class="status-row">
+          <span class="status-name">QuiXzoom Inc (Delaware)</span>
+          <span class="status-badge"><span class="status-dot amber"></span><span class="pending-text">PÅGÅR</span></span>
+        </div>
+        <div class="status-row">
+          <span class="status-name">QuiXzoom UAB (Vilnius)</span>
+          <span class="status-badge"><span class="status-dot amber"></span><span class="pending-text">PÅGÅR</span></span>
+        </div>
+        <div class="status-row">
+          <span class="status-name">Landvex AB (Stockholm)</span>
+          <span class="status-badge"><span class="status-dot amber"></span><span class="pending-text">PÅGÅR</span></span>
+        </div>
+        <div class="status-row">
+          <span class="status-name">Landvex Inc (Houston)</span>
+          <span class="status-badge"><span class="status-dot amber"></span><span class="pending-text">PÅGÅR</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL 3: THAILAND WORKCAMP -->
+    <div class="panel panel-3">
+      <div class="corner-tl"></div>
+      <div class="corner-br"></div>
+      <div class="panel-num">03/06</div>
+      <div class="panel-title">
+        <span class="panel-title-icon">⬡</span>
+        THAILAND WORKCAMP
+      </div>
+      <div class="panel-body">
+        <div class="countdown-block">
+          <div class="countdown-label">T-MINUS // BANGKOK 2026-04-11</div>
+          <div class="countdown-timer">
+            <div class="cd-unit">
+              <div class="cd-num" id="cd-days">--</div>
+              <div class="cd-label">DAGAR</div>
+            </div>
+            <div class="cd-sep">:</div>
+            <div class="cd-unit">
+              <div class="cd-num" id="cd-hours">--</div>
+              <div class="cd-label">TIMMAR</div>
+            </div>
+            <div class="cd-sep">:</div>
+            <div class="cd-unit">
+              <div class="cd-num" id="cd-mins">--</div>
+              <div class="cd-label">MIN</div>
+            </div>
+            <div class="cd-sep">:</div>
+            <div class="cd-unit">
+              <div class="cd-num" id="cd-secs">--</div>
+              <div class="cd-label">SEK</div>
+            </div>
+          </div>
+        </div>
+        <div class="status-row">
+          <span class="status-name">Nysa Hotel Bangkok</span>
+          <span class="status-badge"><span class="status-dot green"></span><span class="live-text">BEKRÄFTAT ✓</span></span>
+        </div>
+        <div class="status-row">
+          <span class="status-name">Leon — Boende förhandling</span>
+          <span class="status-badge"><span class="status-dot amber"></span><span class="pending-text">AKTIV</span></span>
+        </div>
+        <div class="status-row">
+          <span class="status-name">Status övergripande</span>
+          <span class="status-badge"><span class="status-dot amber"></span><span class="pending-text">PLANERING AKTIV</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL 4: REKRYTERING -->
+    <div class="panel panel-4">
+      <div class="corner-tl"></div>
+      <div class="corner-br"></div>
+      <div class="panel-num">04/06</div>
+      <div class="panel-title">
+        <span class="panel-title-icon">⬡</span>
+        REKRYTERING
+      </div>
+      <div class="panel-body">
+        <div class="status-row">
+          <span class="status-name">OpenClaw-nördar</span>
+          <span class="status-badge"><span class="status-dot green"></span><span class="live-text">IDENTIFIERADE</span></span>
+        </div>
+        <div class="recruit-item">
+          <span class="recruit-handle">u/Timrael</span>
+          <span class="recruit-status">TARGET IDENTIFIED 🎯</span>
+        </div>
+        <div class="recruit-item">
+          <span class="recruit-handle">u/ashish_tuda</span>
+          <span class="recruit-status">TARGET IDENTIFIED 🎯</span>
+        </div>
+        <div class="recruit-item">
+          <span class="recruit-handle" style="color:var(--dim);">VisionClaw Builder</span>
+          <span class="recruit-status" style="color:var(--red);">SÖKES ◈</span>
+        </div>
+        <div class="status-row" style="margin-top:4px; border-top: 1px solid var(--border);">
+          <span class="status-name">Approach Mode</span>
+          <span class="status-badge" style="color:var(--purple);">DELIKAT MODE 🤫</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL 5: PROJEKT STATUS -->
+    <div class="panel panel-5">
+      <div class="corner-tl"></div>
+      <div class="corner-br"></div>
+      <div class="panel-num">05/06</div>
+      <div class="panel-title">
+        <span class="panel-title-icon">⬡</span>
+        PROJEKT STATUS
+      </div>
+      <div class="panel-body">
+        <div class="status-row">
+          <span class="status-name">QuiXzoom</span>
+          <span class="status-badge"><span class="status-dot green"></span><span class="beta-text">BETA</span></span>
+        </div>
+        <div class="status-row">
+          <span class="status-name">Wavult OS</span>
+          <span class="status-badge"><span class="status-dot amber"></span><span class="alpha-text">ALPHA</span></span>
+        </div>
+        <div class="status-row">
+          <span class="status-name">Wavult Mobile</span>
+          <span class="status-badge"><span class="status-dot amber"></span><span class="alpha-text">ALPHA</span></span>
+        </div>
+        <div class="status-row">
+          <span class="status-name">LandveX</span>
+          <span class="status-badge"><span class="status-dot red"></span><span class="skeleton-text">SKELETON</span></span>
+        </div>
+        <div class="status-row">
+          <span class="status-name">Optical Insight EU</span>
+          <span class="status-badge"><span class="status-dot amber"></span><span class="alpha-text">ALPHA</span></span>
+        </div>
+        <div class="status-row">
+          <span class="status-name">Morning Brief</span>
+          <span class="status-badge"><span class="status-dot green"></span><span class="live-text">LIVE</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL 6: AKTIVITETSLOGG -->
+    <div class="panel panel-6">
+      <div class="corner-tl"></div>
+      <div class="corner-br"></div>
+      <div class="panel-num">06/06</div>
+      <div class="panel-title">
+        <span class="panel-title-icon">⬡</span>
+        AKTIVITETSLOGG
+      </div>
+      <div class="panel-body">
+        <div class="log-entry">
+          <span class="log-time">[10:47]</span>
+          <span class="log-text">Mail till Sperling &amp; Co skickat</span>
+        </div>
+        <div class="log-entry">
+          <span class="log-time">[10:38]</span>
+          <span class="log-text">Team-mail om middag skickat</span>
+        </div>
+        <div class="log-entry">
+          <span class="log-time">[10:05]</span>
+          <span class="log-text">Enterprise health check startad</span>
+        </div>
+        <div class="log-entry">
+          <span class="log-time">[09:04]</span>
+          <span class="log-text">system_events migration live</span>
+        </div>
+        <div class="log-entry">
+          <span class="log-time">[09:00]</span>
+          <span class="log-text">Bernt tunnel aktiv</span>
+        </div>
+        <div class="log-entry">
+          <span class="log-time">[08:00]</span>
+          <span class="log-text">Morning brief skickad</span>
+        </div>
+        <div class="log-entry" style="margin-top:auto;">
+          <span class="log-time" style="color:var(--green);">[NOW]</span>
+          <span class="log-text" style="color:var(--green);">System idle — awaiting orders<span class="log-cursor"></span></span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="footer-status">
+      <div class="dot" style="background:var(--green); color:var(--green);"></div>
+      ALL SYSTEMS OPERATIONAL
+    </div>
+    <div class="footer-ticker" id="ticker">
+      ◈ WAVULT GROUP // COMMAND CENTER // SECURE CHANNEL // BERNT ACTIVE ◈
+    </div>
+    <div class="footer-version">BERNT v1.0 — WAVULT OS BETA</div>
+  </footer>
+
+</div>
+
+<script>
+  // ── CLOCK ──
+  function padZ(n) { return String(n).padStart(2, '0'); }
+
+  const DAYS_SV = ['SÖNDAG','MÅNDAG','TISDAG','ONSDAG','TORSDAG','FREDAG','LÖRDAG'];
+  const MONTHS_SV = ['JAN','FEB','MAR','APR','MAJ','JUN','JUL','AUG','SEP','OKT','NOV','DEC'];
+
+  function updateClock() {
+    const now = new Date();
+    const timeStr = padZ(now.getHours()) + ':' + padZ(now.getMinutes()) + ':' + padZ(now.getSeconds());
+    document.getElementById('clock').textContent = timeStr;
+
+    const day = DAYS_SV[now.getDay()];
+    const date = padZ(now.getDate());
+    const month = MONTHS_SV[now.getMonth()];
+    const year = now.getFullYear();
+    document.getElementById('dateline').textContent = day + ' ' + date + ' ' + month + ' ' + year;
+  }
+
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // ── COUNTDOWN to 2026-04-11 00:00:00 Stockholm (UTC+2 in April) ──
+  function updateCountdown() {
+    // Stockholm is UTC+2 on 2026-04-11 (CEST)
+    const target = new Date('2026-04-11T00:00:00+02:00');
+    const now = new Date();
+    let diff = target - now;
+
+    if (diff < 0) {
+      document.getElementById('cd-days').textContent = '00';
+      document.getElementById('cd-hours').textContent = '00';
+      document.getElementById('cd-mins').textContent = '00';
+      document.getElementById('cd-secs').textContent = '00';
+      return;
+    }
+
+    const secs  = Math.floor(diff / 1000) % 60;
+    const mins  = Math.floor(diff / 60000) % 60;
+    const hours = Math.floor(diff / 3600000) % 24;
+    const days  = Math.floor(diff / 86400000);
+
+    document.getElementById('cd-days').textContent  = String(days).padStart(3, '0');
+    document.getElementById('cd-hours').textContent = padZ(hours);
+    document.getElementById('cd-mins').textContent  = padZ(mins);
+    document.getElementById('cd-secs').textContent  = padZ(secs);
+  }
+
+  updateCountdown();
+  setInterval(updateCountdown, 1000);
+
+  // ── TICKER SCROLL ──
+  const tickerEl = document.getElementById('ticker');
+  const tickerTexts = [
+    '◈ WAVULT GROUP // COMMAND CENTER // SECURE CHANNEL // BERNT ACTIVE ◈',
+    '◈ THAILAND WORKCAMP COUNTDOWN: T-MINUS LOADING // BANGKOK 2026 ◈',
+    '◈ 6 ENTITIES IN REGISTRATION PHASE // GLOBAL EXPANSION INITIATED ◈',
+    '◈ QUIXZOOM BETA LIVE // OPTICAL INSIGHT ALPHA STAGE // WAVULT OS BUILDING ◈',
+    '◈ ALL APIS NOMINAL // GATEWAY SECURED // TUNNEL STABLE ◈',
+  ];
+  let tickerIdx = 0;
+  setInterval(() => {
+    tickerIdx = (tickerIdx + 1) % tickerTexts.length;
+    tickerEl.style.opacity = '0';
+    setTimeout(() => {
+      tickerEl.textContent = tickerTexts[tickerIdx];
+      tickerEl.style.opacity = '1';
+    }, 400);
+  }, 5000);
+  tickerEl.style.transition = 'opacity 0.4s ease';
+</script>
+
+</body>
+</html>
